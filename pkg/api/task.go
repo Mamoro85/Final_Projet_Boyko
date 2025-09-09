@@ -31,7 +31,7 @@ func checkAndNormalizeDate(date, title, comment, repeat string) (string, string,
 	}
 	if strings.TrimSpace(repeat) != "" {
 		if _, err := NextDate(now, date, repeat); err != nil {
-			return date, title, comment, repeat, fmt.Errorf("invalid repeat rule: %v", err)
+			return date, title, comment, repeat, fmt.Errorf("invalid repeat rule: %w", err)
 		}
 	}
 	if !afterNow(parsed, now) { // date is today or past → fix

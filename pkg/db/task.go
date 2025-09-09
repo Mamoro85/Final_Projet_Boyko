@@ -65,7 +65,7 @@ func GetTask(id string) (*Task, error) {
 	query := `SELECT id, date, title, comment, repeat FROM scheduler WHERE id = ?`
 	err := DB.QueryRow(query, id).Scan(&task.ID, &task.Date, &task.Title, &comment, &repeat)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("Задача не найдена")
 		}
 		return nil, fmt.Errorf("ошибка получения задачи: %w", err)

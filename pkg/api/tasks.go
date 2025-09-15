@@ -31,7 +31,7 @@ func tasksHandler(w http.ResponseWriter, r *http.Request) {
 	// Получаем задачи из базы данных (максимум 50)
 	tasks, err := db.Tasks(50)
 	if err != nil {
-		writeJSON(w, map[string]string{"error": err.Error()})
+		writeJSON(w, map[string]string{"error": err.Error()}, http.StatusInternalServerError)
 		return
 	}
 
@@ -50,5 +50,5 @@ func tasksHandler(w http.ResponseWriter, r *http.Request) {
 	// Возвращаем список задач
 	writeJSON(w, TasksResp{
 		Tasks: taskResps,
-	})
+	}, http.StatusOK)
 }

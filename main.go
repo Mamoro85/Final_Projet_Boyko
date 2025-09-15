@@ -15,6 +15,11 @@ func main() {
 	if err := db.Init("scheduler.db"); err != nil {
 		log.Fatalf("Ошибка инициализации базы данных: %v", err)
 	}
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("Ошибка закрытия базы данных: %v", err)
+		}
+	}()
 
 	// 2. Инициализация API
 	api.Init()

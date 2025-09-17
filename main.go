@@ -15,11 +15,7 @@ func main() {
 	if err := db.Init("scheduler.db"); err != nil {
 		log.Fatalf("Ошибка инициализации базы данных: %v", err)
 	}
-	defer func() {
-		if err := db.Close(); err != nil {
-			log.Printf("Ошибка закрытия базы данных: %v", err)
-		}
-	}()
+	defer cleanupDB()
 
 	// 2. Инициализация API
 	api.Init()
@@ -37,10 +33,17 @@ func main() {
 	}
 }
 
+// cleanupDB закрывает соединение с базой данных
+func cleanupDB() {
+	if err := db.Close(); err != nil {
+		log.Printf("Ошибка закрытия базы данных: %v", err)
+	}
+}
+
 func getPort() string {
 	port := os.Getenv("TODO_PORT")
 	if port == "" {
-		port = "7540"
+		port = "7541"
 	}
 	return port
 }

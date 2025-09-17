@@ -1,6 +1,3 @@
-
-
-
 package api
 
 import (
@@ -13,6 +10,7 @@ import (
 func Init() {
 	http.HandleFunc("/api/nextdate", NextDateHandler)
 	http.HandleFunc("/api/task", taskHandler)
+	http.HandleFunc("/api/task/", taskByIDHandler)
 	http.HandleFunc("/api/task/done", taskDoneHandler)
 	http.HandleFunc("/api/tasks", tasksHandler)
 }
@@ -25,7 +23,7 @@ func NextDateHandler(w http.ResponseWriter, r *http.Request) {
 	repeat := r.FormValue("repeat")
 
 	if dstart == "" || repeat == "" {
-		http.Error(w, "missing parameters: date and repeat are required", http.StatusBadRequest)
+		writeJSON(w, map[string]string{"error": "missing parameters: date and repeat are required"}, http.StatusBadRequest)
 		return
 	}
 
@@ -37,7 +35,7 @@ func NextDateHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		now, err = time.Parse(DateFormat, nowStr)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("invalid now date: %v", err), http.StatusBadRequest)
+			writeJSON(w, map[string]string{"error": fmt.Sprintf("invalid now date: %v", err)}, http.StatusBadRequest)
 			return
 		}
 	}
@@ -45,9 +43,12 @@ func NextDateHandler(w http.ResponseWriter, r *http.Request) {
 	// вычисляем следующую дату
 	next, err := NextDate(now, dstart, repeat)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeJSON(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
 		return
 	}
 
-	fmt.Fprintln(w, next)
+	// Возвращаем просто строку, как ожидает тест
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(next))
 }

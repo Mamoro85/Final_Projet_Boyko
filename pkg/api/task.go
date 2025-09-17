@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -11,14 +10,6 @@ import (
 
 	"github.com/Mamoro85/Final_Projet_Boyko.git/pkg/db"
 )
-
-func writeJSON(w http.ResponseWriter, data any, statusCode int) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(statusCode)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		log.Printf("Ошибка кодирования JSON: %v", err)
-	}
-}
 
 // checkAndNormalizeDate validates date and repeat; ensures date is not in the past
 func checkAndNormalizeDate(date, title, comment, repeat string) (string, string, string, string, error) {
@@ -132,7 +123,12 @@ func taskHandler(w http.ResponseWriter, r *http.Request) {
 
 		err = db.UpdateTask(task)
 		if err != nil {
-			writeJSON(w, map[string]string{"error": err.Error()}, http.StatusInternalServerError)
+			// Проверяем, является ли ошибка "задача не найдена"
+			if err.Error() == "Задача не найдена" {
+				writeJSON(w, map[string]string{"error": err.Error()}, http.StatusNotFound)
+			} else {
+				writeJSON(w, map[string]string{"error": err.Error()}, http.StatusInternalServerError)
+			}
 			return
 		}
 
@@ -147,7 +143,12 @@ func taskHandler(w http.ResponseWriter, r *http.Request) {
 
 		err := db.DeleteTask(idStr)
 		if err != nil {
-			writeJSON(w, map[string]string{"error": err.Error()}, http.StatusInternalServerError)
+			// Проверяем, является ли ошибка "задача не найдена"
+			if err.Error() == "Задача не найдена" {
+				writeJSON(w, map[string]string{"error": err.Error()}, http.StatusNotFound)
+			} else {
+				writeJSON(w, map[string]string{"error": err.Error()}, http.StatusInternalServerError)
+			}
 			return
 		}
 
@@ -181,7 +182,12 @@ func taskDoneHandler(w http.ResponseWriter, r *http.Request) {
 	if strings.TrimSpace(task.Repeat) == "" {
 		err = db.DeleteTask(idStr)
 		if err != nil {
-			writeJSON(w, map[string]string{"error": err.Error()}, http.StatusInternalServerError)
+			// Проверяем, является ли ошибка "задача не найдена"
+			if err.Error() == "Задача не найдена" {
+				writeJSON(w, map[string]string{"error": err.Error()}, http.StatusNotFound)
+			} else {
+				writeJSON(w, map[string]string{"error": err.Error()}, http.StatusInternalServerError)
+			}
 			return
 		}
 		writeJSON(w, map[string]any{}, http.StatusOK)
@@ -204,9 +210,110 @@ func taskDoneHandler(w http.ResponseWriter, r *http.Request) {
 	// Обновляем дату задачи
 	err = db.UpdateDate(next, idStr)
 	if err != nil {
-		writeJSON(w, map[string]string{"error": err.Error()}, http.StatusInternalServerError)
+		// Проверяем, является ли ошибка "задача не найдена"
+		if err.Error() == "Задача не найдена" {
+			writeJSON(w, map[string]string{"error": err.Error()}, http.StatusNotFound)
+		} else {
+			writeJSON(w, map[string]string{"error": err.Error()}, http.StatusInternalServerError)
+		}
 		return
 	}
 
 	writeJSON(w, map[string]any{}, http.StatusOK)
+}
+
+// taskByIDHandler handles GET, PUT, DELETE for /api/task/{id}
+func taskByIDHandler(w http.ResponseWriter, r *http.Request) {
+	// Extract ID from URL path
+	path := r.URL.Path
+	if !strings.HasPrefix(path, "/api/task/") {
+		writeJSON(w, map[string]string{"error": "Invalid path"}, http.StatusBadRequest)
+		return
+	}
+
+	idStr := strings.TrimPrefix(path, "/api/task/")
+	if idStr == "" {
+		writeJSON(w, map[string]string{"error": "Не указан идентификатор"}, http.StatusBadRequest)
+		return
+	}
+
+	// Validate ID format
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || id <= 0 {
+		writeJSON(w, map[string]string{"error": "Неверный идентификатор задачи"}, http.StatusBadRequest)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		task, err := db.GetTask(idStr)
+		if err != nil {
+			writeJSON(w, map[string]string{"error": err.Error()}, http.StatusNotFound)
+			return
+		}
+
+		writeJSON(w, map[string]string{
+			"id":      fmt.Sprintf("%d", task.ID),
+			"date":    task.Date,
+			"title":   task.Title,
+			"comment": task.Comment,
+			"repeat":  task.Repeat,
+		}, http.StatusOK)
+
+	case http.MethodPut:
+		var in struct {
+			Date    string `json:"date"`
+			Title   string `json:"title"`
+			Comment string `json:"comment"`
+			Repeat  string `json:"repeat"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+			writeJSON(w, map[string]string{"error": "invalid JSON"}, http.StatusBadRequest)
+			return
+		}
+
+		date, title, comment, repeat, err := checkAndNormalizeDate(in.Date, in.Title, in.Comment, in.Repeat)
+		if err != nil {
+			writeJSON(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
+			return
+		}
+
+		task := &db.Task{
+			ID:      id,
+			Date:    date,
+			Title:   title,
+			Comment: comment,
+			Repeat:  repeat,
+		}
+
+		err = db.UpdateTask(task)
+		if err != nil {
+			// Проверяем, является ли ошибка "задача не найдена"
+			if err.Error() == "Задача не найдена" {
+				writeJSON(w, map[string]string{"error": err.Error()}, http.StatusNotFound)
+			} else {
+				writeJSON(w, map[string]string{"error": err.Error()}, http.StatusInternalServerError)
+			}
+			return
+		}
+
+		writeJSON(w, map[string]any{}, http.StatusOK)
+
+	case http.MethodDelete:
+		err := db.DeleteTask(idStr)
+		if err != nil {
+			// Проверяем, является ли ошибка "задача не найдена"
+			if err.Error() == "Задача не найдена" {
+				writeJSON(w, map[string]string{"error": err.Error()}, http.StatusNotFound)
+			} else {
+				writeJSON(w, map[string]string{"error": err.Error()}, http.StatusInternalServerError)
+			}
+			return
+		}
+
+		writeJSON(w, map[string]any{}, http.StatusOK)
+
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
 }
